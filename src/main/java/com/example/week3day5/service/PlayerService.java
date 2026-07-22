@@ -7,14 +7,26 @@ import com.example.week3day5.entity.Team;
 import com.example.week3day5.exception.ResourceNotFoundException;
 import com.example.week3day5.repository.PlayerRepository;
 import com.example.week3day5.repository.TeamRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
 public class PlayerService {
+    private static final int PLAYER_PAGE_SIZE = 10;
+    private static final Map<String, String> SORT_FIELDS = Map.of(
+            "age", "birthDate",
+            "height", "heightCm",
+            "careerTitle", "careerTitles",
+            "careerWins", "careerWins"
+    );
 
     private final PlayerRepository playerRepository;
     private final TeamRepository teamRepository;
@@ -30,6 +42,28 @@ public class PlayerService {
         return playerRepository.findAll().stream()
                 .map(playerMapper::toResponse)
                 .toList();
+    }
+
+    public Page<PlayerResponse> getPlayersPage(int page, String fieldName, String direction) {
+        if (page < 0) {
+            throw new IllegalArgumentException("page must be greater than or equal to 0");
+        }
+
+        String sortProperty = SORT_FIELDS.get(fieldName);
+        if (sortProperty == null) {
+            throw new IllegalArgumentException("fieldName must be one of: age, height, careerTitle, careerWins");
+        }
+
+        Sort.Direction sortDirection;
+        try {
+            sortDirection = Sort.Direction.fromString(direction);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("direction must be either asc or desc");
+        }
+
+        Pageable pageable = PageRequest.of(page, PLAYER_PAGE_SIZE, Sort.by(sortDirection, sortProperty));
+        return playerRepository.findAll(pageable)
+                .map(playerMapper::toResponse);
     }
 
     public PlayerResponse getPlayerById(Integer id) {
